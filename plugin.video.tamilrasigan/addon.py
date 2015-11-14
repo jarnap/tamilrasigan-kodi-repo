@@ -82,7 +82,6 @@ def getPlayHdDetails(playHdUrl):
 		else:
 			movie_url = None
 
-	print movie_url
 	return movie_url
 
 def getToolsTubeDetails(toolsTubeUrl):
@@ -181,6 +180,73 @@ def getVideoRajDetails(videoRajUrl):
 
 	return movie_url
 
+def getCloudyDetails(cloudyUrl):
+	movie_url = None
+	req = urllib2.Request(cloudyUrl)
+	req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.3) Gecko/2008092417 Firefox/3.0.3')
+	response = urllib2.urlopen(req)
+	page_content = response.read()
+	response.close()
+	soup = BeautifulSoup(page_content)
+	cid = ''
+	cid2 = ''
+	cid3 = 'tamilrasigan.com'
+	num_errors = ''
+	key = ''
+	filevalue = ''
+	uservalue = ''
+	passvalue = ''
+	domainvalue = ''
+
+	for scriptTag in soup.findAll('script'):
+		for content in scriptTag.contents:
+			cid_node = re.search(r'cid:"(.*?)",', content)
+			if cid_node:
+				cid = cid_node.group(1)
+
+			cid2_node = re.search(r'cid2: "(.*?)",', content)
+			if cid2_node:
+				cid2 = cid2_node.group(1)
+
+			cid3_node = re.search(r'cid3:"(.*?)",', content)
+			if cid3_node:
+				cid3 = cid3_node.group(1)
+
+			user_node = re.search(r'user:"(.*?)",', content)
+			if user_node:
+				uservalue = user_node.group(1)
+
+			pass_node = re.search(r'pass:"(.*?)",', content)
+			if pass_node:
+				passvalue = pass_node.group(1)
+
+			domain_node = re.search(r'domain: "(.*?)",', content)
+			if domain_node:
+				domainvalue = domain_node.group(1)
+
+			key_node = re.search(r'key: "(.*?)",', content)
+			if key_node:
+				key = key_node.group(1)
+
+			file_node = re.search(r'file:"(.*?)",', content)
+			if file_node:
+				filevalue = file_node.group(1)
+
+			errors_node = re.search(r'numOfErrors: "(.*?)",', content)
+			if errors_node:
+				num_errors = errors_node.group(1)
+	
+	videoraj_base_url = 'https://www.cloudy.ec/api/player.api.php'
+	params = { "user": uservalue, "pass": passvalue, "cid": cid, "cid2": cid2, "cid3": cid3, "numOfErrors": num_errors, "file": filevalue, "key": key}
+	video_req = urllib2.Request(videoraj_base_url + '?' + urllib.urlencode(params))
+	video_req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.3) Gecko/2008092417 Firefox/3.0.3')
+	video_resp = urllib2.urlopen(video_req)
+	video_content = video_resp.read()
+	video_resp.close()
+	movie_url = urllib.unquote(video_content[4:].split('&')[0])
+
+	return movie_url
+
 def getMovieUrls(baseUrl):
 	movie_urls = {}
 	index = 0
@@ -211,6 +277,10 @@ def getMovieUrls(baseUrl):
 			videoraj_url = getVideoRajDetails(iframe_src)
 			if videoraj_url:
 				movie_urls.update({'videoraj':'label=VideoRaj,url=' + videoraj_url})
+		elif 'cloudy.ec' in iframe_src:
+			cloudy_url = getCloudyDetails(iframe_src)
+			if cloudy_url:
+				movie_urls.update({'cloudy':'label=Cloudy.ec,url=' + cloudy_url})
 	
 	return movie_urls
 
@@ -256,8 +326,6 @@ elif mode[0] == 'movietitle':
 		if referer:
 			siteUrl = siteUrl+ '|' + urllib.urlencode({'Referer': referer})
 		
-		print siteUrl
-
 		li = xbmcgui.ListItem(label, iconImage='DefaultVideo.png')
 		xbmcplugin.addDirectoryItem(handle=addon_handle, url=siteUrl, listitem=li)
 
