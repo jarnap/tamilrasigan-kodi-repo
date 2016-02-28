@@ -2,6 +2,8 @@ import sys
 import urllib2
 import urllib
 import urlparse
+import xbmc
+import xbmcaddon
 import xbmcgui
 import xbmcplugin
 import json
@@ -24,7 +26,7 @@ mode = args.get('mode', None)
 def getMovieList():
 	movie_list = {}
 	index = 0
-	req = urllib2.Request('http://tamilrasigan.com/')
+	req = urllib2.Request('http://tamilrasigan.com/tamil-movies-online/')
 	req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.3) Gecko/2008092417 Firefox/3.0.3')
 	response = urllib2.urlopen(req)
 	page_content = response.read()
@@ -284,6 +286,27 @@ def getMovieUrls(baseUrl):
 	
 	return movie_urls
 
+def getSearchUrls(searchText):
+	movie_list = {}
+	baseUrl = 'http://tamilrasigan.com/?s=' + searchText.replace(" ", "+")
+	index = 0
+	req = urllib2.Request(baseUrl)
+	req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.3) Gecko/2008092417 Firefox/3.0.3')
+	response = urllib2.urlopen(req)
+	page_content = response.read()
+	response.close()
+	soup = BeautifulSoup(page_content)
+
+	for figureTag in soup.findAll('header', {'class':'genpost-entry-header'}):
+		hrefTag = figureTag.find('a', {'rel':'bookmark'})
+		title = hrefTag.text
+		if 'Movie Watch Online' in title:
+			trimmedTitle = title[:-19]
+			url = hrefTag.get('href')
+			movie_list.update({index:'mode=movietitle,title=' + trimmedTitle + ',url=' + url})
+		index = index + 1
+
+	return movie_list
 
 if mode is None:
 	movie_list = getMovieList()
@@ -303,6 +326,10 @@ if mode is None:
 		movieUrl = build_url({'mode': mode, 'movieName': title, 'url': url})
 		li = xbmcgui.ListItem(title, iconImage='DefaultFolder.png')
 		xbmcplugin.addDirectoryItem(handle=addon_handle, url=movieUrl, listitem=li, isFolder=True)
+	
+	searchUrl = build_url({'mode': 'search'})
+	li = xbmcgui.ListItem('Search', iconImage='DefaultFolder.png')
+	xbmcplugin.addDirectoryItem(handle=addon_handle, url=searchUrl, listitem=li)
 	
 	xbmcplugin.endOfDirectory(addon_handle)
 
@@ -330,3 +357,28 @@ elif mode[0] == 'movietitle':
 		xbmcplugin.addDirectoryItem(handle=addon_handle, url=siteUrl, listitem=li)
 
 	xbmcplugin.endOfDirectory(addon_handle)
+
+elif mode[0] == 'search':
+	keyboard = xbmc.Keyboard('', xbmcaddon.Addon().getLocalizedString(30208))
+	keyboard.doModal()
+	if keyboard.isConfirmed and keyboard.getText():
+		searchText = keyboard.getText()
+		movie_list = getSearchUrls(searchText)
+		title = ''
+		url = ''
+		mode = ''
+		for key, value in movie_list.iteritems():
+			values = value.split(',')
+			for eachSplit in values:
+				if 'mode' in eachSplit:
+					mode = eachSplit[5:]
+				elif 'title' in eachSplit:
+					title = eachSplit[6:]
+				elif 'url' in eachSplit:
+					url = eachSplit[4:]
+
+			movieUrl = build_url({'mode': mode, 'movieName': title, 'url': url})
+			li = xbmcgui.ListItem(title, iconImage='DefaultFolder.png')
+			xbmcplugin.addDirectoryItem(handle=addon_handle, url=movieUrl, listitem=li, isFolder=True)
+		
+		xbmcplugin.endOfDirectory(addon_handle)
